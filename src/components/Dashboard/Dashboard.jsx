@@ -5,6 +5,7 @@ import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, addDoc } from "firebase/firestore";
 import { v4 as uuidv4 } from 'uuid';
 import { query, where, getDocs } from "firebase/firestore";
+import { sendShareEmail } from '../shareEmail/sendShareEmail'
 export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [file, setFile] = useState(null);
@@ -168,7 +169,7 @@ const pdfsMeta = pdfsSnapshot.docs.map(doc => doc.data());
           onChange={e => setSearch(e.target.value)}
           className="mb-4 p-2 rounded w-full bg-gray-700 text-white placeholder-gray-400"
         />
-       <ul>
+        <ul>
   {loading ? (
     <li className="text-gray-400">Loading PDFs...</li>
   ) : filteredPdfs.length === 0 ? (
@@ -191,11 +192,26 @@ const pdfsMeta = pdfsSnapshot.docs.map(doc => doc.data());
           </a>
           <button
             className="text-green-400 underline"
-            onClick={() => {
-              navigator.clipboard.writeText(
-                `${window.location.origin}/shared/${pdf.shareId}`
+            onClick={async () => {
+              // Prompt for invitee email
+              const inviteeEmail = prompt("Enter the invitee's email address:");
+              if (!inviteeEmail) return;
+
+              // Generate share link
+              const shareLink = `${window.location.origin}/shared/${pdf.shareId}`;
+
+              // Call the backend function to send the email
+              const result = await sendShareEmail(
+                inviteeEmail,
+                pdf.fileName,
+                shareLink
               );
-              alert("Share link copied!");
+
+              if (result.success) {
+                alert("Share email sent!");
+              } else {
+                alert("Failed to send email: " + (result.error || "Unknown error"));
+              }
             }}
           >
             Share
@@ -205,6 +221,7 @@ const pdfsMeta = pdfsSnapshot.docs.map(doc => doc.data());
     ))
   )}
 </ul>
+       
       </div>
     </div>
   );
