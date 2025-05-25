@@ -12,7 +12,7 @@ function App() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
-         <Route path="/shared/:shareId" element={<SharedPdf />} />
+        <Route path="/shared/:shareId" element={<SharedPdf />} />
       </Routes>
     </Router>
   );

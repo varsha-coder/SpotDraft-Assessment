@@ -1,12 +1,22 @@
 import { useEffect, useState, useRef } from "react";
 import { db } from "../../firebase/firebaseConfig";
-import { getStorage, ref, listAll, getDownloadURL, uploadBytes } from "firebase/storage";
+import {
+  getStorage,
+  ref,
+  listAll,
+  getDownloadURL,
+  uploadBytes,
+} from "firebase/storage";
 import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, addDoc } from "firebase/firestore";
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 import { query, where, getDocs } from "firebase/firestore";
-import { sendShareEmail } from '../shareEmail/sendShareEmail'
+import { sendShareEmail } from "../shareEmail/sendShareEmail";
+
 export default function Dashboard() {
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [sharePdf, setSharePdf] = useState(null);
+  const [inviteeEmail, setInviteeEmail] = useState("");
   const [search, setSearch] = useState("");
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -14,11 +24,26 @@ export default function Dashboard() {
   const [files, setFiles] = useState([]);
   const [filteredPdfs, setFilteredPdfs] = useState([]);
   const [user, setUser] = useState(null);
+  const [message, setMessage] = useState(null);
+  const [messageType, setMessageType] = useState("info");
   const fileInputRef = useRef(null);
   const storage = getStorage();
   const auth = getAuth();
 
-  // Wait for auth state before fetching files
+  // Notification helper
+  function showMessage(msg, type = "info", timeout = 3000) {
+    setMessage(msg);
+    setMessageType(type);
+    if (timeout) {
+      setTimeout(() => setMessage(null), timeout);
+    }
+  }
+
+  // Email validation
+  function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
@@ -26,7 +51,6 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, [auth]);
 
-  // Fetch files when user or refresh changes
   useEffect(() => {
     if (!user) return;
     async function fetchFiles() {
@@ -36,6 +60,7 @@ export default function Dashboard() {
         setFiles(userFiles);
       } catch (error) {
         console.error("Error fetching files:", error);
+        showMessage("Error fetching files.", "error");
       } finally {
         setLoading(false);
       }
@@ -43,44 +68,43 @@ export default function Dashboard() {
     fetchFiles();
   }, [user, refresh]);
 
-  // Filter PDFs by search
   useEffect(() => {
-    const updatedFilteredpdf = search.length === 0
-      ? files
-      : files.filter(pdf =>
-          pdf.fileName.toLowerCase().includes(search.toLowerCase())
-        );
+    const updatedFilteredpdf =
+      search.length === 0
+        ? files
+        : files.filter((pdf) =>
+            pdf.fileName.toLowerCase().includes(search.toLowerCase())
+          );
     setFilteredPdfs(updatedFilteredpdf);
   }, [search, files]);
 
   async function getUserFiles(userId) {
-        const userFilesRef = ref(storage, `user_files/${userId}/`);
+    const userFilesRef = ref(storage, `user_files/${userId}/`);
     try {
       const pdfsQuery = query(
-  collection(db, "pdfs"),
-  where("userId", "==", userId)
-);
-const pdfsSnapshot = await getDocs(pdfsQuery);
-const pdfsMeta = pdfsSnapshot.docs.map(doc => doc.data());
+        collection(db, "pdfs"),
+        where("userId", "==", userId)
+      );
+      const pdfsSnapshot = await getDocs(pdfsQuery);
+      const pdfsMeta = pdfsSnapshot.docs.map((doc) => doc.data());
 
       const fileList = await listAll(userFilesRef);
       const filesWithUrls = await Promise.all(
         fileList.items.map(async (itemRef) => {
           const downloadURL = await getDownloadURL(itemRef);
-           const meta = pdfsMeta.find(meta =>
-      meta.name === itemRef.name
-    );
+          const meta = pdfsMeta.find((meta) => meta.name === itemRef.name);
           return {
             fileName: itemRef.name,
             filePath: itemRef.fullPath,
             url: downloadURL,
-            shareId: meta ? meta.shareId : undefined, // <-- include shareId
+            shareId: meta ? meta.shareId : undefined,
           };
         })
       );
       return filesWithUrls;
     } catch (error) {
       console.error("Error retrieving user files:", error);
+      showMessage("Error retrieving user files.", "error");
       throw error;
     }
   }
@@ -88,21 +112,24 @@ const pdfsMeta = pdfsSnapshot.docs.map(doc => doc.data());
   // Handle PDF upload
   const handleUpload = async () => {
     if (!file || file.type !== "application/pdf") {
-      alert("Please select a valid PDF file.");
+      showMessage("Please select a valid PDF file.", "error");
       return;
     }
     if (!user) {
-      alert("You must be logged in to upload.");
+      showMessage("You must be logged in to upload.", "error");
       return;
     }
     setLoading(true);
     try {
       const originalName = file.name;
-      const nameWithoutExt = originalName.toLowerCase().endsWith('.pdf')
+      const nameWithoutExt = originalName.toLowerCase().endsWith(".pdf")
         ? originalName.slice(0, -4)
         : originalName;
-        const storageFileName= `${nameWithoutExt}_${Date.now()}`;
-      const storageRef = ref(storage, `user_files/${user.uid}/${storageFileName}`);
+      const storageFileName = `${nameWithoutExt}_${Date.now()}`;
+      const storageRef = ref(
+        storage,
+        `user_files/${user.uid}/${storageFileName}`
+      );
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
       const shareId = uuidv4();
@@ -113,15 +140,14 @@ const pdfsMeta = pdfsSnapshot.docs.map(doc => doc.data());
         user: user.email,
         userId: user.uid,
         shareId,
-
       });
       setFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = ""; // 2. Clear the file input
-      alert("PDF uploaded!");
-      setRefresh(r => !r);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      showMessage("PDF uploaded!", "success");
+      setRefresh((r) => !r);
     } catch (err) {
       console.error(err);
-      alert("Upload failed!");
+      showMessage("Upload failed!", "error");
     }
     setLoading(false);
   };
@@ -132,8 +158,98 @@ const pdfsMeta = pdfsSnapshot.docs.map(doc => doc.data());
     window.location.href = "/login";
   };
 
+  // Share PDF modal logic
+  const handleShareClick = (pdf) => {
+    setSharePdf(pdf);
+    setInviteeEmail("");
+    setShowEmailModal(true);
+  };
+
+  const handleSendEmail = async () => {
+    if (!inviteeEmail) {
+      showMessage("Please enter an email address.", "error");
+      return;
+    }
+    if (!isValidEmail(inviteeEmail)) {
+      showMessage("Please enter a valid email address.", "error");
+      return;
+    }
+    const shareLink = `${window.location.origin}/shared/${sharePdf.shareId}`;
+    const result = await sendShareEmail(
+      inviteeEmail,
+      sharePdf.fileName,
+      shareLink
+    );
+    if (result.success) {
+      showMessage(" Email sent!", "success");
+    } else {
+      showMessage(
+        "Failed to send email: " + (result.error || "Unknown error"),
+        "error"
+      );
+    }
+    setShowEmailModal(false);
+    setSharePdf(null);
+  };
+
+  // Share via link
+  const handleShareLink = async (pdf) => {
+    const shareLink = `${window.location.origin}/shared/${pdf.shareId}`;
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      showMessage("Share link copied to clipboard!", "success");
+    } catch {
+      showMessage("Failed to copy link.", "error");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 p-8">
+      {/* Notification message */}
+      {message && (
+        <div
+          className={`mb-4 px-4 py-2 rounded text-center font-semibold ${
+            messageType === "success"
+              ? "bg-green-600 text-white"
+              : messageType === "error"
+              ? "bg-red-600 text-white"
+              : "bg-blue-600 text-white"
+          }`}
+        >
+          {message}
+        </div>
+      )}
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-gray-800 text-white p-6 rounded shadow-lg">
+            <h3 className="mb-2 font-bold">Share PDF: {sharePdf?.fileName}</h3>
+            <input
+              type="email"
+              placeholder="Invitee's email"
+              value={inviteeEmail}
+              onChange={(e) => setInviteeEmail(e.target.value)}
+              className="border p-2 rounded w-full mb-4 bg-gray-700 text-white placeholder-gray-400"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleSendEmail}
+                className="bg-green-500 text-white px-4 py-2 rounded"
+              >
+                Send
+              </button>
+              <button
+                onClick={() => setShowEmailModal(false)}
+                className="bg-gray-400 text-white px-4 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-white">Dashboard</h1>
         <button
@@ -148,7 +264,7 @@ const pdfsMeta = pdfsSnapshot.docs.map(doc => doc.data());
         <input
           type="file"
           accept="application/pdf"
-          onChange={e => setFile(e.target.files[0])}
+          onChange={(e) => setFile(e.target.files[0])}
           ref={fileInputRef}
           className="mb-4 block w-full text-white"
         />
@@ -166,62 +282,103 @@ const pdfsMeta = pdfsSnapshot.docs.map(doc => doc.data());
           type="text"
           placeholder="Search PDFs..."
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={(e) => setSearch(e.target.value)}
           className="mb-4 p-2 rounded w-full bg-gray-700 text-white placeholder-gray-400"
         />
         <ul>
-  {loading ? (
-    <li className="text-gray-400">Loading PDFs...</li>
-  ) : filteredPdfs.length === 0 ? (
-    <li className="text-gray-400">No PDFs found.</li>
-  ) : (
-    filteredPdfs.map(pdf => (
-      <li
-        key={pdf.filePath}
-        className="flex justify-between items-center bg-gray-700 rounded p-3 mb-2 hover:bg-gray-600 transition"
-      >
-        <span className="text-white">{pdf.fileName}</span>
-        <div className="flex gap-2">
-          <a
-            href={pdf.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-400 underline"
-          >
-            View
-          </a>
-          <button
-            className="text-green-400 underline"
-            onClick={async () => {
-              // Prompt for invitee email
-              const inviteeEmail = prompt("Enter the invitee's email address:");
-              if (!inviteeEmail) return;
-
-              // Generate share link
-              const shareLink = `${window.location.origin}/shared/${pdf.shareId}`;
-
-              // Call the backend function to send the email
-              const result = await sendShareEmail(
-                inviteeEmail,
-                pdf.fileName,
-                shareLink
-              );
-
-              if (result.success) {
-                alert("Share email sent!");
-              } else {
-                alert("Failed to send email: " + (result.error || "Unknown error"));
-              }
-            }}
-          >
-            Share
-          </button>
-        </div>
-      </li>
-    ))
-  )}
-</ul>
-       
+          {loading ? (
+            <li className="text-gray-400">Loading PDFs...</li>
+          ) : filteredPdfs.length === 0 ? (
+            <li className="text-gray-400">No PDFs found.</li>
+          ) : (
+            filteredPdfs.map((pdf) => (
+              <li
+                key={pdf.filePath}
+                className="flex justify-between items-center bg-gray-700 rounded p-3 mb-2 hover:bg-gray-600 transition"
+              >
+                <span className="text-white">{pdf.fileName}</span>
+                <div className="flex gap-4">
+                  {/* View PDF */}
+                  <a
+                    href={pdf.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 underline flex items-center"
+                    title="View PDF"
+                  >
+                    {/* Eye Icon */}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-8 w-8"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                      />
+                    </svg>
+                  </a>
+                  {/* Share Via Link */}
+                  <button
+                    className="text-yellow-400 underline flex items-center"
+                    onClick={() => handleShareLink(pdf)}
+                    title="Copy shareable link to clipboard"
+                    type="button"
+                  >
+                    {/* Share Arrow Icon */}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-8 w-8"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 12v1a8 8 0 008 8h0a8 8 0 008-8v-1M12 16V4m0 0l-4 4m4-4l4 4"
+                      />
+                    </svg>
+                  </button>
+                  {/* Share Via Email */}
+                  <button
+                    className="text-green-400 underline flex items-center"
+                    onClick={() => handleShareClick(pdf)}
+                    title="Share this PDF via email"
+                    type="button"
+                  >
+                    {/* Envelope Icon */}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-8 w-8"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </li>
+            ))
+          )}
+        </ul>
       </div>
     </div>
   );
