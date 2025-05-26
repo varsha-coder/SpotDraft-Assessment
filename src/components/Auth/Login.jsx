@@ -9,32 +9,47 @@ export default function Login() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = async () => {
-    setError("");
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigate("/dashboard");
-    } catch (err) {
-      if (err.code === "auth/wrong-password") {
-        setError("Wrong password. Please try again.");
-      } else if (err.code === "auth/user-not-found") {
-        setError(
-          <>
-            No user found with this email.&nbsp;
-            <button
-              className="text-blue-200 underline"
-              onClick={() => navigate("/signup")}
-            >
-              Sign up?
-            </button>
-          </>
-        );
-      } else {
-        setError("Login failed. Please check your credentials.");
-      }
-      console.error(err);
+ const handleLogin = async () => {
+  setError("");
+  // Email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    setError("Please enter a valid email address.");
+    return;
+  }
+  // Password validation: min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+  if (!passwordRegex.test(password)) {
+    setError(
+      "Password must be at least 8 characters and include uppercase, lowercase, number, and special character."
+    );
+    return;
+  }
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    navigate("/dashboard");
+  } catch (err) {
+    if (err.code === "auth/wrong-password") {
+      setError("Wrong password. Please try again.");
+    } else if (err.code === "auth/user-not-found") {
+      setError(
+        <>
+          No user found with this email.&nbsp;
+          <button
+            className="text-blue-200 underline"
+            onClick={() => navigate("/signup")}
+          >
+            Sign up?
+          </button>
+        </>
+      );
+    } else {
+      setError("Login failed. Please check your credentials.");
     }
-  };
+    console.error(err);
+  }
+};
+  
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700">

@@ -11,6 +11,24 @@ export default function Signup() {
   const navigate = useNavigate();
 
 const handleSignup = async () => {
+  // Email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    setMessageType("error");
+    setMessage("Please enter a valid email address.");
+    setTimeout(() => setMessage(""), 2000);
+    return;
+  }
+  // Password validation: min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+  if (!passwordRegex.test(password)) {
+    setMessageType("error");
+    setMessage(
+      "Password must be at least 8 characters and include uppercase, lowercase, number, and special character."
+    );
+    setTimeout(() => setMessage(""), 3000);
+    return;
+  }
   try {
     await createUserWithEmailAndPassword(auth, email, password);
     setMessageType("success");
@@ -26,6 +44,7 @@ const handleSignup = async () => {
     setTimeout(() => setMessage(""), 2000);
   }
 };
+  
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700">
