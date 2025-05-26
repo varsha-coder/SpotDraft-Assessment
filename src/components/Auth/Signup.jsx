@@ -6,19 +6,26 @@ import { useNavigate } from "react-router-dom";
 export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("success");
   const navigate = useNavigate();
 
-  const handleSignup = async () => {
-    try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      alert("Signed up!");
-      // Optionally navigate to dashboard or login
-      // navigate('/dashboard');
-    } catch (err) {
-      console.error(err);
-      alert("Signup failed!");
-    }
-  };
+const handleSignup = async () => {
+  try {
+    await createUserWithEmailAndPassword(auth, email, password);
+    setMessageType("success");
+    setMessage("Signed up successfully!");
+    setTimeout(() => {
+      setMessage("");
+      navigate("/login");
+    }, 1500);
+  } catch (err) {
+    console.error(err);
+    setMessageType("error");
+    setMessage("Signup failed!");
+    setTimeout(() => setMessage(""), 2000);
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700">
@@ -26,6 +33,17 @@ export default function Signup() {
         <h2 className="text-2xl font-bold text-center text-white mb-2">
           Sign Up
         </h2>
+        {message && (
+          <div
+            className={`mb-2 px-4 py-2 rounded text-center font-semibold ${
+              messageType === "success"
+                ? "bg-green-600 text-white"
+                : "bg-red-600 text-white"
+            }`}
+          >
+            {message}
+          </div>
+        )}
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
