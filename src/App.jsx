@@ -4,6 +4,7 @@ import Login from './components/Auth/Login';
 import Dashboard from './components/Dashboard/Dashboard';
 import SharedPdf from './components/Shared/SharedPdf';
 
+
 function App() {
   return (
     <Router>
@@ -13,6 +14,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/shared/:shareId" element={<SharedPdf />} />
+        <Route path="/pdf/:shareId" element={<SharedPdf />} />
       </Routes>
     </Router>
   );
