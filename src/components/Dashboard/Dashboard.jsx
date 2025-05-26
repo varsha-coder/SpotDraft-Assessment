@@ -23,12 +23,15 @@ export default function Dashboard() {
   const [refresh, setRefresh] = useState(false);
   const [files, setFiles] = useState([]);
   const [filteredPdfs, setFilteredPdfs] = useState([]);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState();
   const [message, setMessage] = useState(null);
   const [messageType, setMessageType] = useState("info");
   const fileInputRef = useRef(null);
   const storage = getStorage();
   const auth = getAuth();
+
+
+
 
   // Notification helper
   function showMessage(msg, type = "info", timeout = 3000) {
@@ -111,46 +114,46 @@ export default function Dashboard() {
 
   // Handle PDF upload
   const handleUpload = async () => {
-    if (!file || file.type !== "application/pdf") {
-      showMessage("Please select a valid PDF file.", "error");
-      return;
-    }
-    if (!user) {
-      showMessage("You must be logged in to upload.", "error");
-      return;
-    }
-    setLoading(true);
-    try {
-      const originalName = file.name;
-      const nameWithoutExt = originalName.toLowerCase().endsWith(".pdf")
-        ? originalName.slice(0, -4)
-        : originalName;
-      const storageFileName = `${nameWithoutExt}_${Date.now()}`;
-      const storageRef = ref(
-        storage,
-        `user_files/${user.uid}/${storageFileName}`
-      );
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
-      const shareId = uuidv4();
-      await addDoc(collection(db, "pdfs"), {
-        name: storageFileName,
-        url,
-        uploadedAt: new Date(),
-        user: user.email,
-        userId: user.uid,
-        shareId,
-      });
-      setFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      showMessage("PDF uploaded!", "success");
-      setRefresh((r) => !r);
-    } catch (err) {
-      console.error(err);
-      showMessage("Upload failed!", "error");
-    }
-    setLoading(false);
-  };
+  if (!file || file.type !== "application/pdf") {
+    showMessage("Please select a valid PDF file.", "error");
+    return;
+  }
+  if (!user) {
+    window.location.href = "/login"; // Redirect to login page
+    return;
+  }
+  setLoading(true);
+  try {
+    const originalName = file.name;
+    const nameWithoutExt = originalName.toLowerCase().endsWith(".pdf")
+      ? originalName.slice(0, -4)
+      : originalName;
+    const storageFileName = `${nameWithoutExt}_${Date.now()}`;
+    const storageRef = ref(
+      storage,
+      `user_files/${user.uid}/${storageFileName}`
+    );
+    await uploadBytes(storageRef, file);
+    const url = await getDownloadURL(storageRef);
+    const shareId = uuidv4();
+    await addDoc(collection(db, "pdfs"), {
+      name: storageFileName,
+      url,
+      uploadedAt: new Date(),
+      user: user.email,
+      userId: user.uid,
+      shareId,
+    });
+    setFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    showMessage("PDF uploaded!", "success");
+    setRefresh((r) => !r);
+  } catch (err) {
+    console.error(err);
+    showMessage("Upload failed!", "error");
+  }
+  setLoading(false);
+};
 
   // Handle logout
   const handleLogout = async () => {
@@ -202,6 +205,19 @@ export default function Dashboard() {
       showMessage("Failed to copy link.", "error");
     }
   };
+  // filepath: c:\Users\Dell\Desktop\New folder\SpotDraft-Assessment\src\components\Dashboard\Dashboard.jsx
+if (typeof user === "undefined") {
+  // Still checking auth state
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700">
+      <span className="text-white text-xl">Checking authentication...</span>
+    </div>
+  );
+}
+if (user === null) {
+  window.location.href = "/login";
+  return null;
+}
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 p-8">
@@ -250,15 +266,20 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-        <button
-          onClick={handleLogout}
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
-        >
-          Logout
-        </button>
-      </div>
+     <div className="flex justify-between items-center mb-8">
+  <div>
+    <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+    {user && (
+      <p className="text-gray-300 mt-1">Hello {user.email}</p>
+    )}
+  </div>
+  <button
+    onClick={handleLogout}
+    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+  >
+    Logout
+  </button>
+</div>
       <div className="bg-gray-800 p-6 rounded-xl shadow-lg max-w-2xl mx-auto mb-8">
         <h2 className="text-xl text-white mb-4">Upload PDF</h2>
         <input
