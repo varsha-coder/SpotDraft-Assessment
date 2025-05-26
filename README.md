@@ -91,7 +91,7 @@ Git
 
 1. Clone the Repository
 git clone https://github.com/varsha-coder/SpotDraft-Assessment
-cd pdf-collaboration-system
+
 2. Install Dependencies
 npm install
 3. Firebase Setup
