@@ -267,7 +267,7 @@ export default function Dashboard() {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-          {user && <p className="text-gray-300 mt-1">Hello {user.email}</p>}
+          {user && <p className="text-gray-300 mt-1">Hello ,{user.email}</p>}
         </div>
         <button
           onClick={handleLogout}
