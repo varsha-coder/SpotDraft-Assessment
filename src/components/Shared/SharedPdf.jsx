@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { db } from "../../firebase/firebaseConfig";
 import { collection, query, where, getDocs, addDoc, orderBy, serverTimestamp } from "firebase/firestore";
@@ -12,6 +12,8 @@ export default function SharedPdf() {
   const [loading, setLoading] = useState(true);
 
   const auth = getAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Fetch PDF by shareId
   useEffect(() => {
@@ -66,16 +68,30 @@ export default function SharedPdf() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700">
       <div className="flex-1 flex flex-col items-center justify-center p-4 h-screen">
-  <h2 className="text-2xl text-white mb-4">{pdf.name}</h2>
-  <div className="w-full h-full flex-1 flex justify-center items-center">
-    <iframe
-      src={pdf.url}
-      title={pdf.name}
-      className="w-full h-[80vh] md:h-[90vh] bg-white rounded"
-      style={{ minHeight: "400px" }}
-    />
-  </div>
-</div>
+        <div className="flex items-center gap-2 mb-4">
+          {location.pathname.startsWith("/pdf/") && (
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="text-white hover:text-blue-400"
+              title="Back to Dashboard"
+            >
+              {/* Left Arrow Icon */}
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+          <h2 className="text-2xl text-white">{pdf.name}</h2>
+        </div>
+        <div className="w-full h-full flex-1 flex justify-center items-center">
+          <iframe
+            src={pdf.url}
+            title={pdf.name}
+            className="w-full h-[80vh] md:h-[90vh] bg-white rounded"
+            style={{ minHeight: "400px" }}
+          />
+        </div>
+      </div>
       <div className="w-full md:w-96 bg-gray-900 p-4 flex flex-col">
         <h3 className="text-lg text-white mb-2">Comments</h3>
         <div className="flex-1 overflow-y-auto mb-2">
